@@ -185,3 +185,8 @@ Negligible effect on the system being debugged.
 E.g., dumps (scan point), monitors.
 Highly intrusive
 Print statements, breakpoints, and single-stepping.
+
+## ---------------------------------------------------------------------------------------
+
+reference for C vs C++ and Embedded C(file:///C:/Users/taraf/Downloads/02-CvsCpp-450.html)
+
