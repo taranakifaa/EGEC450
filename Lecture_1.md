@@ -37,28 +37,28 @@ I/O
 - Specifies an upper bound on the time required to perform the input/calculation/output in reaction to external events
 
 ## 4. Product Life Cycle 
-4.1. Analysis (What is the problem?)
+- 4.1. Analysis (What is the problem?)
 Translate requirements into specifications.
-4.2. Design (How do we solve the problem?)
+- 4.2. Design (How do we solve the problem?)
 Translate specifications into the engineering design.
 High-level design; design block diagrams, algorithms, data structures, interfacing, …
-4.3. Development/Implementation (Implement the design)
-\n 4.4. Testing (Does it work? How well does it work?)\n
+- 4.3. Development/Implementation (Implement the design)
+- 4.4. Testing (Does it work? How well does it work?)\n
 Test both the hardware and software.
 Validation testing: Testing for correctness.
 Performance testing: Testing for efficiency.
-4.5. Deployment and Maintenance (Monitor in the field)
+- 4.5. Deployment and Maintenance (Monitor in the field)
 Ensure the product operates correctly.
 Provide maintenance and improvements.
 
 ## 5. Full Design Process Example
-Conduct market survey, profit estimate.
-Determine overall function, specifications.
-Create data flow chart (test it).
-Create flowchart (test it).
-Create software (test it).
-Create simulation, prototype (test it).
-Build it (test it).
+**Conduct market survey, profit estimate.**
+**Determine overall function, specifications.**
+**Create data flow chart (test it).**
+**Create flowchart (test it).**
+**Create software (test it).**
+**Create simulation, prototype (test it).**
+-**Build it (test it).**
 
 ## 6. Software Design Process Example
 Create a function table (pin X input, pin Y output).
