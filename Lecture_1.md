@@ -43,8 +43,7 @@ Translate requirements into specifications.
 Translate specifications into the engineering design.
 High-level design; design block diagrams, algorithms, data structures, interfacing, …
 4.3. Development/Implementation (Implement the design)
-Create the hardware and software from the design.
-4.4. Testing (Does it work? How well does it work?)
+\n 4.4. Testing (Does it work? How well does it work?)\n
 Test both the hardware and software.
 Validation testing: Testing for correctness.
 Performance testing: Testing for efficiency.
