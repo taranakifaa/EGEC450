@@ -61,27 +61,27 @@ Provide maintenance and improvements.
 -**Build it (test it).**
 
 ## 6. Software Design Process Example
-Create a function table (pin X input, pin Y output).
-Determine how to test it (switch input, LED output).
-Create a data flow graph.
-Create a flow chart.
-Write pseudocode.
-Write source code or assembly.
-Simulate it.
-Test it on the hardware.
+-Create a function table (pin X input, pin Y output).
+-Determine how to test it (switch input, LED output).
+-Create a data flow graph.
+-Create a flow chart.
+-Write pseudocode.
+-Write source code or assembly.
+-Simulate it.
+-Test it on the hardware.
 
 ## 7. Common Algorithm Constructs
 7.1. **Sequential**
-Perform one task after another in a sequence.
+-Perform one task after another in a sequence.
 7.2. Conditional (If-Then-Else)
-Make a decision out of two choices.
-Iterate for multiple decisions.
+-Make a decision out of two choices.
+-Iterate for multiple decisions.
 7.3. Iterative (Loop)
-Repeat until condition is satisfied.
-For and while loops check condition at the beginning of the loop.
-May iterate 0, 1, multiple, or many times.
-do-while loops check condition at the end of the loop.
-Always runs at least once.
+-Repeat until condition is satisfied.
+-For and while loops check condition at the beginning of the loop.
+-May iterate 0, 1, multiple, or many times.
+-do-while loops check condition at the end of the loop.
+-Always runs at least once.
 May iterate 1, multiple, or many times.
 
 ## 8. Running in "Parallel"
@@ -151,14 +151,14 @@ Reduce memory
 Reduce power
 Reduce size
 Reduce cost
-10.3. Typical Debugging Aids
+## 10.3. Typical Debugging Aids
 Breakpoints
 Single Step, Step Over, Step Out, Run, Run to Cursor, etc.
 Viewing Registers
 Memory and Watch Windows
 Profiling
 Plotting
-10.4. Instrumentation
+## 10.4. Instrumentation
 Code we add to the system that aids in debugging.
 E.g., print statements.
 Good practice
@@ -169,9 +169,9 @@ Causes it to suffer a runtime overhead.
 Simplifies "on-site" customer support.
 Use conditional compilation or conditional assembly (if available).
 Easy to remove all instruments.
-10.5. Visualization
+## 10.5. Visualization
 How the debugging information is displayed.
-10.6. Debugging intrusiveness
+## 10.6. Debugging intrusiveness
 Intrusive debugging
 Degree of perturbation caused by the debugging itself.
 How much the debugging slows down execution.
