@@ -61,14 +61,14 @@ Provide maintenance and improvements.
 -**Build it (test it).**
 
 ## 6. Software Design Process Example
--Create a function table (pin X input, pin Y output).
--Determine how to test it (switch input, LED output).
--Create a data flow graph.
--Create a flow chart.
--Write pseudocode.
--Write source code or assembly.
--Simulate it.
--Test it on the hardware.
+- Create a function table (pin X input, pin Y output).
+- Determine how to test it (switch input, LED output).
+- Create a data flow graph.
+- Create a flow chart.
+- Write pseudocode.
+- Write source code or assembly.
+- Simulate it.
+- Test it on the hardware.
 
 ## 7. Common Algorithm Constructs
 7.1. **Sequential**
