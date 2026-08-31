@@ -1,0 +1,71 @@
+Introduction to I/O
+EGEC 450: Embedded Processor Interfacing
+Table of Contents
+1. Acknowledgment and disclaimer
+2. Documentation
+3. Reading/Writing I/O
+4. Abstraction via a device driver
+5. Using a breadboard
+6. Switch configuration: Positive vs. negative logic
+7. LED configuration
+1. Acknowledgment and disclaimer
+Acknowledgment:
+Lecture adapted from EGCP 450, Dr. John Faller, California State University, Fullerton.
+Disclaimer:
+You may not distribute or post these lecture slides without written permission from Dr. Mike Turi, Electrical and Computer Engineering Department, California State University, Fullerton.
+2. Documentation
+When working with the ESP32 and the Arduino IDE, the following resources are helpful:
+Arduino API Documentation
+Espressif's Arduino ESP32 Libraries Documentation
+3. Reading/Writing I/O
+There are functions to configure I/O; we will use these later for more advanced I/O.
+Check the pins on your ESP32 to determine which pins can be used for input versus output and digital versus analog.
+For digital I/O: digitalRead and digitalWrite.
+For analog I/O: analogRead and analogWrite.
+4. Abstraction via a device driver
+Abstraction
+Allows us to modularize our code.
+Gives us the option to expose what we want users to see and hide what we don't want them to see.
+Device Driver
+Abstraction is used to expose public routines that we want users of the driver to call and use private routines to hide driver internals from the user (more on private routines later).
+For example, rather than using digitalWrite with specific values to turn on or off an LED, an LED device driver could specify:
+LED_Init
+LED_Off
+LED_On
+LED_Toggle
+It is very useful to have a well-designed device driver for complex I/O devices.
+5. Using a breadboard
+Breadboard setup.  Figure 2.3.1 from Introduction to Embedded Systems Using the MSPM0+ (https://users.ece.utexas.edu/~valvano/mspm0/ebook/index.htm) (License: http://creativecommons.org/licenses/by-nc-nd/4.0/deed.en_US).
+
+Figure 1: Breadboard setup. Figure 2.3.1 from Introduction to Embedded Systems Using the MSPM0+ (License).
+
+Use power rails (columns) for V~DD~ and ground.
+Your ESP32, other ICs, and buttons must straddle the center valley.
+Other components, e.g., resistors, LEDs, buttons, etc., need to use multiple rows.
+6. Switch configuration: Positive vs. negative logic
+Positive and negative logic.  Figure 2.5.3 from Introduction to Embedded Systems Using the MSPM0+ (https://users.ece.utexas.edu/~valvano/mspm0/ebook/index.htm) (License: http://creativecommons.org/licenses/by-nc-nd/4.0/deed.en_US).
+
+Figure 2: Positive and negative logic. Figure 2.5.3 from Introduction to Embedded Systems Using the MSPM0+ (License).
+
+Negative logic
+Pressed (closed): 0 V, false
+Not Pressed (open): 3.3 V, true
+Positive logic
+Pressed (closed): 3.3 V, true
+Not Pressed (open): 0 V, false
+7. LED configuration
+Introduction to the LED.  Figure 2.6.1 from Introduction to Embedded Systems Using the MSPM0+ (https://users.ece.utexas.edu/~valvano/mspm0/ebook/index.htm) (License: http://creativecommons.org/licenses/by-nc-nd/4.0/deed.en_US).
+
+Figure 3: Introduction to the LED. Figure 2.6.1 from Introduction to Embedded Systems Using the MSPM0+ (License).
+
+LED interfacing.  Figure 2.6.2 from Introduction to Embedded Systems Using the MSPM0+ (https://users.ece.utexas.edu/~valvano/mspm0/ebook/index.htm) (License: http://creativecommons.org/licenses/by-nc-nd/4.0/deed.en_US).
+
+Figure 4: LED interfacing. Figure 2.6.2 from Introduction to Embedded Systems Using the MSPM0+ (License).
+
+Date: Fall 2026
+
+Author: Dr. Mike Turi, Electrical and Computer Engineering Department, California State University, Fullerton
+
+Created: 2026-08-28 Fri 12:40
+
+Validate
