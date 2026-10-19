@@ -1,35 +1,72 @@
 
 #include <Arduino.h>
-#include "esp_timer.h"
+#include <SPI.h>
 
+// =====================================================
+// EGEC 450 - FREERTOS STOPWATCH
+// Four-digit seven-segment display
+// 74HC595 shift register + 2N2222 transistors
+// =====================================================
+
+// SHIFT REGISTER PINS
 #define DATA_PIN 23
 #define CLOCK_PIN 18
 #define LATCH_PIN 19
 
-// Transistor base GPIO pins
+// DIGIT CONTROL PINS
 #define D1_PIN 13
 #define D2_PIN 14
 #define D3_PIN 16
 #define D4_PIN 17
 
-// Button GPIO pins
+// BUTTON PINS
 #define START_BTN 32
 #define STOP_BTN 33
 #define INC_BTN 25
 #define RESET_BTN 26
 
+// FREERTOS SETTINGS
+#define STOPWATCH_PERIOD_US 1000
+#define DISPLAY_PERIOD_US 1000
+#define DEBOUNCE_MS 40
+
+// =====================================================
+// GLOBAL VARIABLES
+// =====================================================
+
+// Stopwatch range: 0 to 9999 milliseconds
+volatile uint16_t totalMilliseconds = 0;
+
+// false = stopped, true = running
+volatile bool running = false;
+
+// Protect shared stopwatch variables
+portMUX_TYPE stopwatchMux = portMUX_INITIALIZER_UNLOCKED;
+
+// Button interrupt lockout
+volatile bool buttonLocked[4] = {
+  false, false, false, false
+};
+
+// Button release debounce
+uint32_t releaseStart[4] = {
+  0, 0, 0, 0
+};
+
+// Digit GPIO array
 const int digitPins[4] = {
   D1_PIN, D2_PIN, D3_PIN, D4_PIN
 };
 
+// Button GPIO array
 const int buttonPins[4] = {
   START_BTN, STOP_BTN, INC_BTN, RESET_BTN
 };
 
-// Common-cathode seven-segment patterns
+// Common-cathode segment patterns
 // Q0=A, Q1=B, Q2=C, Q3=D
 // Q4=E, Q5=F, Q6=G, Q7=DP
-const byte numbers[10] = {
+const uint8_t numbers[10] = {
   0b00111111, // 0
   0b00000110, // 1
   0b01011011, // 2
@@ -42,78 +79,91 @@ const byte numbers[10] = {
   0b01101111  // 9
 };
 
-// Shared stopwatch variables
-portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
+// FreeRTOS task handles
+TaskHandle_t stopwatchTaskHandle = NULL;
+TaskHandle_t displayTaskHandle = NULL;
 
-volatile uint16_t totalMilliseconds = 0;
-volatile bool running = false;
+// ESP32 FreeRTOS software timers
+TimerHandle_t stopwatchTimer = NULL;
 
-// Button interrupt events
-volatile bool startEvent = false;
-volatile bool stopEvent = false;
-volatile bool incrementEvent = false;
-volatile bool resetEvent = false;
+// =====================================================
+// BUTTON INTERRUPT SERVICE ROUTINES
+// =====================================================
 
-// Prevent repeated interrupts while held
-volatile bool buttonLocked[4] = {
-  false, false, false, false
-};
-
-// Track stable button releases
-unsigned long releaseStart[4] = {
-  0, 0, 0, 0
-};
-
-const unsigned long debounceMs = 40;
-
-// Stopwatch timer
-esp_timer_handle_t stopwatchTimer;
-
-// Display multiplexing
-int currentDigit = 0;
-unsigned long lastRefresh = 0;
-
-// ------------------------------------------------
-// BUTTON INTERRUPTS
-// ------------------------------------------------
-
+// START
 void ARDUINO_ISR_ATTR startISR() {
-  if (!buttonLocked[0]) {
-    buttonLocked[0] = true;
-    startEvent = true;
+
+  if (buttonLocked[0]) return;
+
+  buttonLocked[0] = true;
+
+  portENTER_CRITICAL_ISR(&stopwatchMux);
+
+  if (!running) {
+    running = true;
   }
+
+  portEXIT_CRITICAL_ISR(&stopwatchMux);
 }
 
+// STOP
 void ARDUINO_ISR_ATTR stopISR() {
-  if (!buttonLocked[1]) {
-    buttonLocked[1] = true;
-    stopEvent = true;
-  }
-}
 
-void ARDUINO_ISR_ATTR incrementISR() {
-  if (!buttonLocked[2]) {
-    buttonLocked[2] = true;
-    incrementEvent = true;
-  }
-}
+  if (buttonLocked[1]) return;
 
-void ARDUINO_ISR_ATTR resetISR() {
-  if (!buttonLocked[3]) {
-    buttonLocked[3] = true;
-    resetEvent = true;
-  }
-}
+  buttonLocked[1] = true;
 
-// ------------------------------------------------
-// STOPWATCH TIMER CALLBACK
-// Runs every 1 millisecond
-// ------------------------------------------------
-
-void stopwatchCallback(void *arg) {
-  portENTER_CRITICAL(&timerMux);
+  portENTER_CRITICAL_ISR(&stopwatchMux);
 
   if (running) {
+    running = false;
+  }
+
+  portEXIT_CRITICAL_ISR(&stopwatchMux);
+}
+
+// INCREMENT
+void ARDUINO_ISR_ATTR incrementISR() {
+
+  if (buttonLocked[2]) return;
+
+  buttonLocked[2] = true;
+
+  portENTER_CRITICAL_ISR(&stopwatchMux);
+
+  if (!running) {
+    totalMilliseconds =
+      (totalMilliseconds + 1) % 10000;
+  }
+
+  portEXIT_CRITICAL_ISR(&stopwatchMux);
+}
+
+// RESET
+void ARDUINO_ISR_ATTR resetISR() {
+
+  if (buttonLocked[3]) return;
+
+  buttonLocked[3] = true;
+
+  portENTER_CRITICAL_ISR(&stopwatchMux);
+
+  running = false;
+  totalMilliseconds = 0;
+
+  portEXIT_CRITICAL_ISR(&stopwatchMux);
+}
+
+// =====================================================
+// FREERTOS STOPWATCH TIMER CALLBACK
+// =====================================================
+
+void stopwatchTimerCallback(TimerHandle_t timer) {
+
+  portENTER_CRITICAL(&stopwatchMux);
+
+  if (running) {
+
     totalMilliseconds++;
 
     if (totalMilliseconds >= 10000) {
@@ -121,79 +171,67 @@ void stopwatchCallback(void *arg) {
     }
   }
 
-  portEXIT_CRITICAL(&timerMux);
+  portEXIT_CRITICAL(&stopwatchMux);
 }
 
-// ------------------------------------------------
-// SHIFT REGISTER
-// ------------------------------------------------
+// =====================================================
+// SEVEN-SEGMENT DEVICE DRIVER
+// =====================================================
 
-void sendSegments(byte pattern) {
+// Send one byte to 74HC595 using hardware SPI
+void sendSegments(uint8_t pattern) {
+
   digitalWrite(LATCH_PIN, LOW);
 
-  shiftOut(
-    DATA_PIN,
-    CLOCK_PIN,
-    MSBFIRST,
-    pattern
-  );
+  SPI.transfer(pattern);
 
   digitalWrite(LATCH_PIN, HIGH);
 }
 
-// ------------------------------------------------
-// TURN OFF ALL FOUR DIGITS
-// ------------------------------------------------
-
+// Turn OFF all four digit transistors
 void disableDigits() {
+
   for (int i = 0; i < 4; i++) {
     digitalWrite(digitPins[i], LOW);
   }
 }
 
-// ------------------------------------------------
-// MULTIPLEX FOUR-DIGIT DISPLAY
-// Format: S.mmm
-// ------------------------------------------------
-
+// Refresh one digit
 void refreshDisplay() {
-  unsigned long now = micros();
 
-  // Refresh one digit every 1000 us
-  if (now - lastRefresh < 1000) {
-    return;
-  }
-
-  lastRefresh = now;
+  static uint8_t currentDigit = 0;
 
   uint16_t value;
 
-  portENTER_CRITICAL(&timerMux);
+  portENTER_CRITICAL(&stopwatchMux);
   value = totalMilliseconds;
-  portEXIT_CRITICAL(&timerMux);
+  portEXIT_CRITICAL(&stopwatchMux);
 
-  int digits[4] = {
-    value / 1000,
-    (value / 100) % 10,
-    (value / 10) % 10,
-    value % 10
+  // S.mmm format
+  uint8_t digits[4] = {
+    (uint8_t)(value / 1000),
+    (uint8_t)((value / 100) % 10),
+    (uint8_t)((value / 10) % 10),
+    (uint8_t)(value % 10)
   };
 
-  // Prevent ghosting
+  // Turn off digits before changing segments
   disableDigits();
 
-  byte pattern = numbers[digits[currentDigit]];
+  uint8_t pattern = numbers[digits[currentDigit]];
 
-  // Decimal point after first digit
+  // Decimal point after seconds digit
   if (currentDigit == 0) {
     pattern |= 0b10000000;
   }
 
+  // Send number through shift register
   sendSegments(pattern);
 
-  // Enable only the selected digit
+  // Activate selected transistor
   digitalWrite(digitPins[currentDigit], HIGH);
 
+  // Select next digit
   currentDigit++;
 
   if (currentDigit >= 4) {
@@ -201,117 +239,95 @@ void refreshDisplay() {
   }
 }
 
-// ------------------------------------------------
-// BUTTON RELEASE DEBOUNCING
-// One press = one event
-// ------------------------------------------------
+// =====================================================
+// FREERTOS DISPLAY TASK
+// =====================================================
 
-void checkButtonReleases() {
-  unsigned long now = millis();
+void displayTask(void *parameter) {
 
-  for (int i = 0; i < 4; i++) {
+  TickType_t lastWakeTime = xTaskGetTickCount();
 
-    if (!buttonLocked[i]) {
-      releaseStart[i] = 0;
-      continue;
-    }
+  while (true) {
 
-    // HIGH means released (INPUT_PULLUP)
-    if (digitalRead(buttonPins[i]) == HIGH) {
+    refreshDisplay();
 
-      if (releaseStart[i] == 0) {
-        releaseStart[i] = now;
+    // Approximately 1 ms per digit if RTOS tick = 1 ms
+    vTaskDelayUntil(
+      &lastWakeTime,
+      pdMS_TO_TICKS(1)
+    );
+  }
+}
+
+// =====================================================
+// FREERTOS BUTTON DEBOUNCE TASK
+// =====================================================
+
+void buttonTask(void *parameter) {
+
+  while (true) {
+
+    uint32_t now = millis();
+
+    for (int i = 0; i < 4; i++) {
+
+      if (!buttonLocked[i]) {
+        releaseStart[i] = 0;
+        continue;
       }
 
-      // Require stable release for 40 ms
-      if (now - releaseStart[i] >= debounceMs) {
-        buttonLocked[i] = false;
+      // HIGH means button released
+      if (digitalRead(buttonPins[i]) == HIGH) {
+
+        if (releaseStart[i] == 0) {
+          releaseStart[i] = now;
+        }
+
+        if (now - releaseStart[i] >= DEBOUNCE_MS) {
+
+          buttonLocked[i] = false;
+          releaseStart[i] = 0;
+        }
+      }
+      else {
         releaseStart[i] = 0;
       }
     }
-    else {
-      // Still pressed
-      releaseStart[i] = 0;
-    }
+
+    vTaskDelay(pdMS_TO_TICKS(5));
   }
 }
 
-// ------------------------------------------------
-// PROCESS BUTTON EVENTS
-// ------------------------------------------------
-
-void processButtons() {
-  bool startPressed;
-  bool stopPressed;
-  bool incrementPressed;
-  bool resetPressed;
-
-  // Copy and clear pending events atomically
-  noInterrupts();
-
-  startPressed = startEvent;
-  stopPressed = stopEvent;
-  incrementPressed = incrementEvent;
-  resetPressed = resetEvent;
-
-  startEvent = false;
-  stopEvent = false;
-  incrementEvent = false;
-  resetEvent = false;
-
-  interrupts();
-
-  portENTER_CRITICAL(&timerMux);
-
-  // Reset has highest priority
-  if (resetPressed) {
-    running = false;
-    totalMilliseconds = 0;
-  }
-  else {
-    if (stopPressed) {
-      running = false;
-    }
-
-    if (incrementPressed && !running) {
-      totalMilliseconds =
-        (totalMilliseconds + 1) % 10000;
-    }
-
-    if (startPressed) {
-      running = true;
-    }
-  }
-
-  portEXIT_CRITICAL(&timerMux);
-}
-
-// ------------------------------------------------
+// =====================================================
 // SETUP
-// ------------------------------------------------
+// =====================================================
 
 void setup() {
+
   Serial.begin(115200);
 
-  // Shift register pins
-  pinMode(DATA_PIN, OUTPUT);
-  pinMode(CLOCK_PIN, OUTPUT);
+  // Shift register
   pinMode(LATCH_PIN, OUTPUT);
+  digitalWrite(LATCH_PIN, HIGH);
 
-  // Digit transistor pins
+  // Digit transistor GPIOs
   for (int i = 0; i < 4; i++) {
+
     pinMode(digitPins[i], OUTPUT);
     digitalWrite(digitPins[i], LOW);
   }
 
-  // Button pins
+  // Button GPIOs
   for (int i = 0; i < 4; i++) {
     pinMode(buttonPins[i], INPUT_PULLUP);
   }
 
+  // Hardware SPI
+  SPI.begin(CLOCK_PIN, -1, DATA_PIN, -1);
+
   sendSegments(0);
 
-  // Button interrupts
+  // Attach GPIO interrupts
   attachInterrupt(
     digitalPinToInterrupt(START_BTN),
     startISR,
@@ -336,42 +352,54 @@ void setup() {
     FALLING
   );
 
-  // Configure 1 ms stopwatch timer
-  esp_timer_create_args_t timerArgs = {};
-  timerArgs.callback = &stopwatchCallback;
-  timerArgs.name = "stopwatch";
-
-  esp_err_t err = esp_timer_create(
-    &timerArgs,
-    &stopwatchTimer
+  // Create FreeRTOS software timer
+  stopwatchTimer = xTimerCreate(
+    "StopwatchTimer",
+    pdMS_TO_TICKS(1),
+    pdTRUE,
+    NULL,
+    stopwatchTimerCallback
   );
 
-  if (err != ESP_OK) {
+  if (stopwatchTimer == NULL) {
     Serial.println("Timer creation failed");
     return;
   }
 
-  err = esp_timer_start_periodic(
-    stopwatchTimer,
-    1000
-  );
-
-  if (err != ESP_OK) {
+  if (xTimerStart(stopwatchTimer, 0) != pdPASS) {
     Serial.println("Timer start failed");
     return;
   }
 
-  Serial.println("Stopwatch ready");
+  // Display multiplexing task
+  xTaskCreate(
+    displayTask,
+    "DisplayTask",
+    4096,
+    NULL,
+    2,
+    &displayTaskHandle
+  );
+
+  // Button debounce task
+  xTaskCreate(
+    buttonTask,
+    "ButtonTask",
+    2048,
+    NULL,
+    1,
+    NULL
+  );
+
+  Serial.println("FreeRTOS stopwatch ready!");
 }
 
-// ------------------------------------------------
+// =====================================================
 // MAIN LOOP
-// ------------------------------------------------
+// =====================================================
 
 void loop() {
-  refreshDisplay();
 
-  processButtons();
-
-  checkButtonReleases();
+  // Tasks and software timer handle the system.
+  vTaskDelay(pdMS_TO_TICKS(1000));
 }
